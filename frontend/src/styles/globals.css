@@ -1,0 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-ink: #1b1f2a;
+  --color-paper: #f5f1e6;
+  --color-lacquer: #c33c3c;
+  --color-gold: #d4a657;
+
+  --font-display: 'Shippori Mincho', serif;
+  --font-sans: Inter, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-ink text-paper font-sans;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+}
