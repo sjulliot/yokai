@@ -49,6 +49,7 @@ export function Board({ onCardActivate }: BoardProps) {
       ...card,
       position: reconstructed.positions.get(card.id) ?? card.position,
       is_locked: reconstructed.lockedCardIds.has(card.id),
+      observed_by: reconstructed.observedBy.get(card.id) ?? [],
     }))
   }, [view?.cards, isHistory, reconstructed])
 

@@ -15,6 +15,7 @@ from app.core.realtime.protocol import (
     observation_result_event,
     parse_game_action_payload,
     parse_join_payload,
+    parse_kick_player_payload,
     parse_move_target,
     parse_set_deduction_payload,
     parse_set_note_payload,
@@ -85,6 +86,30 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 except GameError as exc:
                     await websocket.send_json(error_event(exc.code, exc.message))
                     continue
+                timer_manager.sync()
+                await broadcast_state(engine, session_manager)
+                await broadcast_history(engine, session_manager)
+                continue
+
+            if msg_type == "kick_player":
+                try:
+                    target = parse_kick_player_payload(payload)
+                    async with game_lock:
+                        engine.kick_player(pseudo, target)
+                except BadPayloadError as exc:
+                    await websocket.send_json(error_event("BAD_REQUEST", str(exc)))
+                    continue
+                except GameError as exc:
+                    await websocket.send_json(error_event(exc.code, exc.message))
+                    continue
+                target_session = session_manager.sessions.pop(target, None)
+                if target_session is not None and target_session.websocket is not None:
+                    try:
+                        await target_session.websocket.close(code=4002, reason="kicked")
+                    except Exception:
+                        logger.warning(
+                            "failed to close websocket for kicked player %s", target, exc_info=True
+                        )
                 timer_manager.sync()
                 await broadcast_state(engine, session_manager)
                 await broadcast_history(engine, session_manager)

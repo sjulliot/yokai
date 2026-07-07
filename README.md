@@ -51,7 +51,7 @@ backend/
     core/timers/         # timers de tour/partie asynchrones (asyncio)
     api/                 # endpoint WebSocket unique (/ws) + healthcheck (/api/health)
     main.py              # assemblage FastAPI (lifespan, CORS, état global en mémoire)
-  tests/engine/         # pytest sur le moteur pur (54 tests)
+  tests/engine/         # pytest sur le moteur pur
   tests/test_views_filtering.py  # tests anti-triche sur les vues filtrées
 
 frontend/
@@ -94,22 +94,30 @@ indices aveugles, nombre de cartes Affinité, carte Objectif (`rectangle`/`squar
 `random` tire une forme au hasard une seule fois au lancement de la partie, fixée pour toute sa
 durée), mémoire parfaite (activée par défaut), timers de tour/partie, activation de l'historique.
 
+Tant que la partie n'est pas lancée, n'importe quel joueur peut modifier ces options, lancer la
+partie, ou exclure un autre joueur (bouton "Virer" dans la liste des joueurs, `kick_player`) — il
+n'y a pas de notion d'hôte/admin, ces actions sont ouvertes à tout le monde par cohérence.
+
 ## Historique complet avec replay animé
 
 L'entrée `start_game` de l'historique contient les positions initiales de toutes les cartes
 (`details.positions` — sans risque, une position ne révèle jamais de couleur). Le client reconstruit
 l'état du plateau à n'importe quel instant en rejouant en avant, depuis ces positions initiales, les
-`move`/`place_clue` publics jusqu'au point consulté (`frontend/src/components/history/reconstructBoard.ts`).
-Dans le drawer historique, les flèches **← →** du clavier naviguent pas à pas dans la partie ; comme
-le plateau réutilise le même composant `YokaiCard` (animations Framer Motion) que le direct, les
-cartes se déplacent visuellement d'une étape à l'autre. Seules `known_color`/`possible_colors`
-restent celles de la connaissance **actuelle** du joueur (elle ne fait que s'enrichir avec le temps,
-jamais régresser, donc aucun risque à l'afficher en survolant le passé).
+`move`/`place_clue`/`observe` publics jusqu'au point consulté
+(`frontend/src/components/history/reconstructBoard.ts`) : positions, verrouillages, et petits
+marqueurs "qui a observé quelle carte" (`observed_by`) sont tous reconstruits pour l'instant `t`
+consulté, pas figés sur l'état live. L'entrée `observe` ne contient que `card_id` — jamais la
+couleur vue, qui reste transmise en privé à l'observateur (`observation_result`). Dans le drawer
+historique, les flèches **← →** du clavier naviguent pas à pas dans la partie ; comme le plateau
+réutilise le même composant `YokaiCard` (animations Framer Motion) que le direct, les cartes se
+déplacent visuellement d'une étape à l'autre. Seules `known_color`/`possible_colors` restent celles
+de la connaissance **actuelle** du joueur (elle ne fait que s'enrichir avec le temps, jamais
+régresser, donc aucun risque à l'afficher en survolant le passé).
 
 ## Tests
 
 ```bash
-cd backend && uv run pytest -q        # 54 tests, moteur de jeu + vues filtrées
+cd backend && uv run pytest -q        # moteur de jeu + vues filtrées
 cd frontend && npm run build          # vérification TypeScript
 cd frontend && npm run test           # tests Vitest
 ```

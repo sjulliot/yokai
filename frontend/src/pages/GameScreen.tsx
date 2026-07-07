@@ -142,8 +142,7 @@ export function GameScreen() {
     }
   }
 
-  const canDeclareEnd =
-    view.is_my_turn && view.current_turn_phase === 'observe' && view.observations_this_turn === 0
+  const canDeclareEnd = view.current_turn_phase === 'observe' && view.observations_this_turn === 0
 
   const canUndoMove = view.is_my_turn && view.current_turn_phase === 'clue'
 

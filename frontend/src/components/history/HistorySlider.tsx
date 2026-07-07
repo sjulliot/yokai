@@ -6,10 +6,8 @@ import type { HistoryEntry } from '../../types/protocol'
 /**
  * Traduction en français d'une entrée d'historique publique.
  *
- * NOTE : l'action `observe` n'apparaît JAMAIS dans `state.history` côté
- * backend (`handle_observe` dans `engine.py` ne fait aucun appel à
- * `_add_history` — c'est une action strictement privée). Le cas est gardé
- * ici uniquement par prudence/robustesse si le backend évoluait un jour.
+ * L'action `observe` ne révèle jamais la couleur vue (privée, transmise à
+ * part à l'observateur) : seul le fait d'avoir regardé telle carte est public.
  */
 function describeEntry(entry: HistoryEntry): string {
   const cardId = entry.details.card_id
@@ -19,7 +17,7 @@ function describeEntry(entry: HistoryEntry): string {
     case 'start_game':
       return 'La partie commence'
     case 'observe':
-      return `${entry.actor} a observé une carte`
+      return `${entry.actor} a observé une carte${cardLabel}`
     case 'move':
       return `${entry.actor} a déplacé une carte${cardLabel}`
     case 'reveal_clue':

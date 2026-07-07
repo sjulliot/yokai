@@ -69,17 +69,17 @@ export function YokaiCard({ card, style, draggable, clueDropTarget = false, onAc
   const isFrontShown = phase === 'finished' || isFlashRevealed
   const frontColor = phase === 'finished' ? card.known_color : isFlashRevealed ? reveal.color : null
 
-  const backTint = useMemo(() => {
-    if (card.is_locked) {
-      return card.known_color ? getYokaiHex(card.known_color) : null
-    }
-    if (card.known_color) {
-      return getYokaiHex(card.known_color)
-    }
-    return null
-  }, [card.is_locked, card.known_color])
-
   const showNoteTrigger = card.known_color === null && phase !== 'finished'
+  const forcedColor = useGameStore((s) => s.view?.my_notes[card.id]?.forced_color ?? null)
+
+  // Un indice à plusieurs couleurs posé sur la carte ne rend pas `known_color` public,
+  // mais si j'ai personnellement déduit/observé sa couleur, c'est plus précis que le tag
+  // d'indice brut : on l'affiche à sa place tout en gardant le swatch d'indice visible.
+  const effectiveColor = card.known_color ?? (card.is_locked ? forcedColor : null)
+
+  const backTint = useMemo(() => {
+    return effectiveColor ? getYokaiHex(effectiveColor) : null
+  }, [effectiveColor])
 
   const wrapperStyle: CSSProperties = {
     ...style,
@@ -130,11 +130,11 @@ export function YokaiCard({ card, style, draggable, clueDropTarget = false, onAc
               ) : (
                 <span className="text-lg">🔒</span>
               )
-            ) : !card.known_color ? (
+            ) : !effectiveColor ? (
               <span className="text-lg text-paper/30">?</span>
             ) : null}
-            {card.known_color && (
-              <span className="text-lg">{ICON_EMOJI[getYokaiIcon(card.known_color)] ?? '❓'}</span>
+            {effectiveColor && (
+              <span className="text-lg">{ICON_EMOJI[getYokaiIcon(effectiveColor)] ?? '❓'}</span>
             )}
           </div>
 
@@ -166,6 +166,14 @@ export function YokaiCard({ card, style, draggable, clueDropTarget = false, onAc
             </span>
           ))}
         </div>
+      )}
+
+      {showNoteTrigger && forcedColor && (
+        <div
+          title={`Ma déduction : ${forcedColor}`}
+          className="pointer-events-none absolute -bottom-1.5 -right-1.5 z-10 h-4 w-4 rounded-full border-2 border-gold"
+          style={{ backgroundColor: getYokaiHex(forcedColor), boxShadow: '0 0 0 2px rgba(212,166,87,0.6)' }}
+        />
       )}
 
       {showNoteTrigger && <DeductionPopover card={card} />}

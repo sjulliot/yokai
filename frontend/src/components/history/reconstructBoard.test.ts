@@ -37,6 +37,13 @@ const entries: HistoryEntry[] = [
     action: 'place_clue',
     details: { card_id: 1, clue_id: 'c1' },
   },
+  {
+    seq: 4,
+    turn_number: 2,
+    actor: 'bob',
+    action: 'observe',
+    details: { card_id: 3 },
+  },
 ]
 
 describe('reconstructBoardAtSeq', () => {
@@ -72,6 +79,17 @@ describe('reconstructBoardAtSeq', () => {
     expect(result!.positions.get(1)).toEqual({ row: 2, col: 2 })
     expect(result!.lockedCardIds.has(1)).toBe(true)
     expect(result!.lockedCardIds.has(2)).toBe(false)
+    expect(result!.observedBy.get(3) ?? []).toEqual([])
+  })
+
+  it('accumulates observers on a card without duplicates, in order', () => {
+    const withRepeatedObserve: HistoryEntry[] = [
+      ...entries,
+      { seq: 5, turn_number: 2, actor: 'alice', action: 'observe', details: { card_id: 3 } },
+      { seq: 6, turn_number: 2, actor: 'bob', action: 'observe', details: { card_id: 3 } },
+    ]
+    const result = reconstructBoardAtSeq(withRepeatedObserve, 6)
+    expect(result!.observedBy.get(3)).toEqual(['bob', 'alice'])
   })
 
   it('is not affected by entries order in the input array', () => {

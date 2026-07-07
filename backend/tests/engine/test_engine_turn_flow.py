@@ -132,11 +132,12 @@ def test_declare_end_allowed_before_any_action_and_ends_game():
     assert engine.state.result is not None
 
 
-def test_declare_end_wrong_player_raises_not_your_turn():
+def test_declare_end_allowed_by_any_player():
     engine = start_two_player_game()
     second = other_player(engine, engine.state.current_player)
-    with pytest.raises(NotYourTurnError):
-        engine.handle_declare_end(second)
+    engine.handle_declare_end(second)
+    assert engine.state.phase == GamePhase.FINISHED
+    assert engine.state.result is not None
 
 
 def test_start_game_with_less_than_two_players_raises():
@@ -212,6 +213,39 @@ def test_register_player_reconnection_keeps_existing_role():
     assert engine.state.players_order == ["alice"]
 
 
+def test_kick_player_removes_target_from_waiting_room():
+    engine = GameEngine(config=make_two_player_config(), rng=random.Random(42))
+    engine.register_player("alice")
+    engine.register_player("bob")
+
+    engine.kick_player("alice", "bob")
+
+    assert engine.state.players_order == ["alice"]
+    assert "bob" not in engine.state.players
+
+
+def test_kick_player_cannot_kick_self():
+    engine = GameEngine(config=make_two_player_config(), rng=random.Random(42))
+    engine.register_player("alice")
+    with pytest.raises(InvalidConfigError):
+        engine.kick_player("alice", "alice")
+
+
+def test_kick_player_unknown_target_raises():
+    engine = GameEngine(config=make_two_player_config(), rng=random.Random(42))
+    engine.register_player("alice")
+    with pytest.raises(UnknownPlayerError):
+        engine.kick_player("alice", "ghost")
+
+
+def test_kick_player_after_start_raises():
+    engine = start_two_player_game()
+    first = engine.state.current_player
+    second = other_player(engine, first)
+    with pytest.raises(WrongGamePhaseError):
+        engine.kick_player(first, second)
+
+
 # ------------------------------------------------------------------
 # Notes / déductions
 # ------------------------------------------------------------------
@@ -276,6 +310,20 @@ def test_handle_observe_twice_by_same_player_does_not_duplicate():
     engine.handle_observe(first, card_id)
 
     assert state.board[card_id].observed_by == [first]
+
+
+def test_handle_observe_logs_history_entry_without_color():
+    engine = start_two_player_game()
+    state = engine.state
+    first = state.current_player
+    card_id = next(iter(state.board))
+
+    engine.handle_observe(first, card_id)
+
+    entry = state.history[-1]
+    assert entry.action == "observe"
+    assert entry.actor == first
+    assert entry.details == {"card_id": card_id}
 
 
 def test_handle_observe_accumulates_multiple_observers():

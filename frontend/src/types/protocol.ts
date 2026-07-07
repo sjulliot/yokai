@@ -113,6 +113,7 @@ export type ClientAction =
   | { type: 'set_config'; payload: Partial<GameConfig> }
   | { type: 'start_game'; payload: Record<string, never> }
   | { type: 'back_to_waiting_room'; payload: Record<string, never> }
+  | { type: 'kick_player'; payload: { pseudo: string } }
   | {
       type: 'game_action'
       payload:

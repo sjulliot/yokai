@@ -72,6 +72,16 @@ class GameEngine:
         for index, remaining_pseudo in enumerate(state.players_order):
             state.players[remaining_pseudo].seat_index = index
 
+    def kick_player(self, requester_pseudo: str, target_pseudo: str) -> None:
+        state = self.state
+        if state.phase != GamePhase.WAITING_ROOM:
+            raise WrongGamePhaseError("un joueur ne peut être exclu que dans la salle d'attente")
+        if target_pseudo == requester_pseudo:
+            raise InvalidConfigError("impossible de s'exclure soi-même")
+        if target_pseudo not in state.players_order:
+            raise UnknownPlayerError(f"joueur inconnu : {target_pseudo}")
+        self.remove_waiting_player(target_pseudo)
+
     def update_config(self, partial: dict) -> None:
         state = self.state
         if state.phase != GamePhase.WAITING_ROOM:
@@ -196,6 +206,7 @@ class GameEngine:
         if pseudo not in card.observed_by:
             card.observed_by.append(pseudo)
         state.observations_this_turn += 1
+        self._add_history(pseudo, "observe", {"card_id": card_id})
 
         remaining_unlocked = any(not c.is_locked for c in state.board.values())
         if state.observations_this_turn >= 2 or not remaining_unlocked:
@@ -312,8 +323,6 @@ class GameEngine:
         state = self.state
         if state.phase != GamePhase.IN_PROGRESS:
             raise WrongGamePhaseError("la partie n'est pas en cours")
-        if pseudo != state.current_player:
-            raise NotYourTurnError(f"ce n'est pas le tour de {pseudo}")
         if state.current_turn_phase != TurnPhase.OBSERVE or state.observations_this_turn != 0:
             raise WrongPhaseError("la fin de partie ne peut être déclarée qu'en tout début de tour")
 

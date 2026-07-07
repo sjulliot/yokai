@@ -3,6 +3,7 @@ import type { HistoryEntry, Position } from '../../types/protocol'
 export interface ReconstructedBoardState {
   positions: Map<number, Position>
   lockedCardIds: Set<number>
+  observedBy: Map<number, string[]>
 }
 
 function isPosition(value: unknown): value is Position {
@@ -46,6 +47,7 @@ export function reconstructBoardAtSeq(entries: HistoryEntry[], uptoSeq: number):
   }
 
   const lockedCardIds = new Set<number>()
+  const observedBy = new Map<number, string[]>()
 
   const sorted = [...entries].sort((a, b) => a.seq - b.seq)
   for (const entry of sorted) {
@@ -64,8 +66,17 @@ export function reconstructBoardAtSeq(entries: HistoryEntry[], uptoSeq: number):
         continue
       }
       lockedCardIds.add(card_id)
+    } else if (entry.action === 'observe') {
+      const { card_id } = entry.details
+      if (typeof card_id !== 'number') {
+        console.warn('reconstructBoardAtSeq: entrée observe malformée, ignorée', entry)
+        continue
+      }
+      const observers = observedBy.get(card_id) ?? []
+      if (!observers.includes(entry.actor)) observers.push(entry.actor)
+      observedBy.set(card_id, observers)
     }
   }
 
-  return { positions, lockedCardIds }
+  return { positions, lockedCardIds, observedBy }
 }
