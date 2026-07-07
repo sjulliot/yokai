@@ -35,7 +35,7 @@ interface YokaiCardProps {
  * Une carte Yōkai du plateau. États visuels (priorité décroissante) :
  * 1. partie terminée -> face visible, vraie couleur
  * 2. verrouillée -> dos + cadenas, teinté si un indice à 1 couleur l'a déjà identifiée
- * 3. couleur connue (observée) -> dos teinté + œil
+ * 3. couleur connue (observée) -> dos teinté + icône de famille
  * 4. sinon -> dos neutre
  * Le flip 3D (Framer Motion) ne s'active que pour (1) et pour les cartes
  * révélées par une action `observe` du tour en cours.
@@ -130,11 +130,9 @@ export function YokaiCard({ card, style, draggable, clueDropTarget = false, onAc
               ) : (
                 <span className="text-lg">🔒</span>
               )
-            ) : card.known_color ? (
-              <span className="text-lg">👁️</span>
-            ) : (
+            ) : !card.known_color ? (
               <span className="text-lg text-paper/30">?</span>
-            )}
+            ) : null}
             {card.known_color && (
               <span className="text-lg">{ICON_EMOJI[getYokaiIcon(card.known_color)] ?? '❓'}</span>
             )}
