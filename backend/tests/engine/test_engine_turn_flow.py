@@ -35,6 +35,12 @@ def start_two_player_game(config: GameConfig | None = None) -> GameEngine:
     return engine
 
 
+def other_player(engine: GameEngine, pseudo: str) -> str:
+    """Le premier joueur est randomisé (voir GameEngine.start_game) : les tests de
+    l'enchaînement des tours ne peuvent pas supposer que c'est toujours "alice"."""
+    return next(p for p in engine.state.players_order if p != pseudo)
+
+
 def find_legal_move(board: dict) -> tuple[int, Position] | None:
     """Cherche un déplacement légal en réutilisant les règles de board.py."""
     occupied = {c.position for c in board.values()}
@@ -70,26 +76,26 @@ def play_move_or_skip(engine: GameEngine, pseudo: str) -> None:
 def test_full_turn_cycle_observe_move_clue_advances_to_next_player():
     engine = start_two_player_game()
     state = engine.state
-    assert state.current_player == "alice"
+    first, second = state.current_player, other_player(engine, state.current_player)
     assert state.current_turn_phase == TurnPhase.OBSERVE
 
     card_ids = list(state.board.keys())
-    color0 = engine.handle_observe("alice", card_ids[0])
+    color0 = engine.handle_observe(first, card_ids[0])
     assert color0 == state.board[card_ids[0]].color
     assert state.current_turn_phase == TurnPhase.OBSERVE
     assert state.observations_this_turn == 1
 
-    color1 = engine.handle_observe("alice", card_ids[1])
+    color1 = engine.handle_observe(first, card_ids[1])
     assert color1 == state.board[card_ids[1]].color
     assert state.current_turn_phase == TurnPhase.MOVE
     assert state.observations_this_turn == 2
 
-    play_move_or_skip(engine, "alice")
+    play_move_or_skip(engine, first)
     assert state.current_turn_phase == TurnPhase.CLUE
 
-    engine.handle_reveal_clue("alice")
+    engine.handle_reveal_clue(first)
 
-    assert state.current_player == "bob"
+    assert state.current_player == second
     assert state.turn_number == 2
     assert state.current_turn_phase == TurnPhase.OBSERVE
     assert state.observations_this_turn == 0
@@ -97,36 +103,40 @@ def test_full_turn_cycle_observe_move_clue_advances_to_next_player():
 
 def test_not_your_turn_error_when_wrong_player_acts():
     engine = start_two_player_game()
+    second = other_player(engine, engine.state.current_player)
     card_id = next(iter(engine.state.board))
     with pytest.raises(NotYourTurnError):
-        engine.handle_observe("bob", card_id)
+        engine.handle_observe(second, card_id)
 
 
 def test_wrong_phase_error_when_moving_before_observing():
     engine = start_two_player_game()
+    first = engine.state.current_player
     with pytest.raises(WrongPhaseError):
-        engine.handle_move("alice", 0, Position(row=0, col=0))
+        engine.handle_move(first, 0, Position(row=0, col=0))
 
 
 def test_declare_end_only_allowed_at_very_start_of_turn():
     engine = start_two_player_game()
+    first = engine.state.current_player
     card_id = next(iter(engine.state.board))
-    engine.handle_observe("alice", card_id)  # observations_this_turn devient 1
+    engine.handle_observe(first, card_id)  # observations_this_turn devient 1
     with pytest.raises(WrongPhaseError):
-        engine.handle_declare_end("alice")
+        engine.handle_declare_end(first)
 
 
 def test_declare_end_allowed_before_any_action_and_ends_game():
     engine = start_two_player_game()
-    engine.handle_declare_end("alice")
+    engine.handle_declare_end(engine.state.current_player)
     assert engine.state.phase == GamePhase.FINISHED
     assert engine.state.result is not None
 
 
 def test_declare_end_wrong_player_raises_not_your_turn():
     engine = start_two_player_game()
+    second = other_player(engine, engine.state.current_player)
     with pytest.raises(NotYourTurnError):
-        engine.handle_declare_end("bob")
+        engine.handle_declare_end(second)
 
 
 def test_start_game_with_less_than_two_players_raises():
@@ -231,12 +241,13 @@ def test_handle_reveal_clue_empty_pile_raises_clue_not_found():
     config = make_two_player_config(clue_counts={1: 0, 2: 0})
     engine = start_two_player_game(config)
     state = engine.state
+    first = state.current_player
     card_ids = list(state.board.keys())
-    engine.handle_observe("alice", card_ids[0])
-    engine.handle_observe("alice", card_ids[1])
-    play_move_or_skip(engine, "alice")
+    engine.handle_observe(first, card_ids[0])
+    engine.handle_observe(first, card_ids[1])
+    play_move_or_skip(engine, first)
     with pytest.raises(ClueNotFoundError):
-        engine.handle_reveal_clue("alice")
+        engine.handle_reveal_clue(first)
 
 
 # ------------------------------------------------------------------
@@ -247,39 +258,42 @@ def test_handle_reveal_clue_empty_pile_raises_clue_not_found():
 def test_handle_observe_records_observer_without_revealing_color():
     engine = start_two_player_game()
     state = engine.state
+    first = state.current_player
     card_id = next(iter(state.board))
 
-    engine.handle_observe("alice", card_id)
+    engine.handle_observe(first, card_id)
 
-    assert state.board[card_id].observed_by == ["alice"]
+    assert state.board[card_id].observed_by == [first]
 
 
 def test_handle_observe_twice_by_same_player_does_not_duplicate():
     engine = start_two_player_game()
     state = engine.state
+    first = state.current_player
     card_id = next(iter(state.board))
 
-    engine.handle_observe("alice", card_id)
-    engine.handle_observe("alice", card_id)
+    engine.handle_observe(first, card_id)
+    engine.handle_observe(first, card_id)
 
-    assert state.board[card_id].observed_by == ["alice"]
+    assert state.board[card_id].observed_by == [first]
 
 
 def test_handle_observe_accumulates_multiple_observers():
     engine = start_two_player_game()
     state = engine.state
+    first, second = state.current_player, other_player(engine, state.current_player)
     card_ids = list(state.board.keys())
     target = card_ids[0]
 
-    engine.handle_observe("alice", target)
-    engine.handle_observe("alice", card_ids[1])
-    play_move_or_skip(engine, "alice")
-    engine.handle_reveal_clue("alice")  # termine le tour d'alice
-    assert state.current_player == "bob"
+    engine.handle_observe(first, target)
+    engine.handle_observe(first, card_ids[1])
+    play_move_or_skip(engine, first)
+    engine.handle_reveal_clue(first)  # termine le tour du premier joueur
+    assert state.current_player == second
 
-    engine.handle_observe("bob", target)
+    engine.handle_observe(second, target)
 
-    assert state.board[target].observed_by == ["alice", "bob"]
+    assert state.board[target].observed_by == [first, second]
 
 
 # ------------------------------------------------------------------
@@ -296,18 +310,19 @@ def advance_to_move_phase(engine: GameEngine, pseudo: str) -> None:
 def test_undo_move_restores_position_and_reopens_move_phase():
     engine = start_two_player_game()
     state = engine.state
-    advance_to_move_phase(engine, "alice")
+    first = state.current_player
+    advance_to_move_phase(engine, first)
 
     found = find_legal_move(state.board)
     assert found is not None
     card_id, target = found
     origin = state.board[card_id].position
 
-    engine.handle_move("alice", card_id, target)
+    engine.handle_move(first, card_id, target)
     assert state.board[card_id].position == target
     assert state.current_turn_phase == TurnPhase.CLUE
 
-    engine.handle_undo_move("alice")
+    engine.handle_undo_move(first)
 
     assert state.board[card_id].position == origin
     assert state.current_turn_phase == TurnPhase.MOVE
@@ -318,37 +333,39 @@ def test_undo_move_restores_position_and_reopens_move_phase():
 def test_undo_move_before_any_move_raises_wrong_phase():
     engine = start_two_player_game()
     with pytest.raises(WrongPhaseError):
-        engine.handle_undo_move("alice")
+        engine.handle_undo_move(engine.state.current_player)
 
 
 def test_undo_move_after_clue_action_is_out_of_window():
     engine = start_two_player_game()
     state = engine.state
-    advance_to_move_phase(engine, "alice")
+    first, second = state.current_player, other_player(engine, state.current_player)
+    advance_to_move_phase(engine, first)
     found = find_legal_move(state.board)
     assert found is not None
     card_id, target = found
-    engine.handle_move("alice", card_id, target)
-    engine.handle_reveal_clue("alice")  # termine le tour d'alice
+    engine.handle_move(first, card_id, target)
+    engine.handle_reveal_clue(first)  # termine le tour du premier joueur
 
-    assert state.current_player == "bob"
+    assert state.current_player == second
     with pytest.raises(NotYourTurnError):
-        engine.handle_undo_move("alice")
+        engine.handle_undo_move(first)
 
 
 def test_undo_move_works_even_when_history_disabled():
     config = make_two_player_config(history_enabled=False)
     engine = start_two_player_game(config)
     state = engine.state
+    first = state.current_player
     assert state.history == []
-    advance_to_move_phase(engine, "alice")
+    advance_to_move_phase(engine, first)
     found = find_legal_move(state.board)
     assert found is not None
     card_id, target = found
     origin = state.board[card_id].position
 
-    engine.handle_move("alice", card_id, target)
-    engine.handle_undo_move("alice")
+    engine.handle_move(first, card_id, target)
+    engine.handle_undo_move(first)
 
     assert state.board[card_id].position == origin
     assert state.current_turn_phase == TurnPhase.MOVE

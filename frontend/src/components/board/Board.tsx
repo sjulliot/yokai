@@ -1,11 +1,8 @@
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
-import { DndContext } from '@dnd-kit/core'
-import type { DragEndEvent } from '@dnd-kit/core'
 import { useGameStore } from '../../store/useGameStore'
 import { useHistoryStore } from '../../store/useHistoryStore'
 import { useUiStore } from '../../store/useUiStore'
-import { useWebSocket } from '../../hooks/useWebSocket'
 import type { CardView } from '../../types/protocol'
 import { YokaiCard } from './YokaiCard'
 import { DropZone } from './DropZone'
@@ -34,7 +31,6 @@ function keyOf(row: number, col: number): string {
  */
 export function Board({ onCardActivate }: BoardProps) {
   const view = useGameStore((s) => s.view)
-  const { send } = useWebSocket()
   const viewMode = useUiStore((s) => s.viewMode)
   const historyIndex = useUiStore((s) => s.historyIndex)
   const entries = useHistoryStore((s) => s.entries)
@@ -78,15 +74,7 @@ export function Board({ onCardActivate }: BoardProps) {
   }
 
   const canDrag = !isHistory && view.is_my_turn && view.current_turn_phase === 'move'
-
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event
-    if (!over) return
-    const cardId = active.data.current?.cardId as number | undefined
-    const to = over.data.current as { row: number; col: number } | undefined
-    if (cardId == null || !to) return
-    send({ type: 'game_action', payload: { action: 'move', card_id: cardId, to: { row: to.row, col: to.col } } })
-  }
+  const canPlaceClue = !isHistory && view.is_my_turn && view.current_turn_phase === 'clue'
 
   const { minRow, maxRow, minCol, maxCol, occupied } = layout
   const numRows = maxRow - minRow + 1
@@ -106,6 +94,7 @@ export function Board({ onCardActivate }: BoardProps) {
             card={card}
             style={{ gridColumn, gridRow }}
             draggable={canDrag && !card.is_locked}
+            clueDropTarget={canPlaceClue && !card.is_locked}
             onActivate={() => !isHistory && onCardActivate(card.id)}
           />,
         )
@@ -129,16 +118,14 @@ export function Board({ onCardActivate }: BoardProps) {
   }
 
   return (
-    <DndContext onDragEnd={handleDragEnd}>
-      <div
-        className="grid gap-2 rounded-lg border border-gold/10 bg-black/10 p-3"
-        style={{
-          gridTemplateColumns: `repeat(${numCols}, minmax(3.25rem, 4.5rem))`,
-          gridTemplateRows: `repeat(${numRows}, minmax(3.25rem, 4.5rem))`,
-        }}
-      >
-        {cells}
-      </div>
-    </DndContext>
+    <div
+      className="grid gap-2 rounded-lg border border-gold/10 bg-black/10 p-3"
+      style={{
+        gridTemplateColumns: `repeat(${numCols}, minmax(3.25rem, 4.5rem))`,
+        gridTemplateRows: `repeat(${numRows}, minmax(3.25rem, 4.5rem))`,
+      }}
+    >
+      {cells}
+    </div>
   )
 }

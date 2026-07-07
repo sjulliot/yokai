@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { DndContext } from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
 import { useGameStore } from '../store/useGameStore'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useErrorStore } from '../store/useErrorStore'
@@ -11,6 +13,8 @@ import { TurnBanner } from '../components/turn/TurnBanner'
 import { PhaseStepper } from '../components/turn/PhaseStepper'
 import { TimerBadge } from '../components/turn/TimerBadge'
 import { PlayerList } from '../components/players/PlayerList'
+import { AffinityCardPanel } from '../components/players/AffinityCardPanel'
+import { ScorePanel } from '../components/players/ScorePanel'
 import { SpectatorViewSwitcher } from '../components/spectator/SpectatorViewSwitcher'
 import { HistorySlider } from '../components/history/HistorySlider'
 
@@ -63,12 +67,17 @@ export function GameScreen() {
   const lastError = useErrorStore((s) => s.lastError)
   const clearError = useErrorStore((s) => s.clear)
   const [selectedClueId, setSelectedClueId] = useState<string | null>(null)
+  // Cartes déjà cliquées en phase Observer ce tour-ci : verrou synchrone (pas
+  // le store, qui ne se remplit qu'après l'aller-retour serveur) empêchant un
+  // double-clic sur la même carte de consommer les deux observations du tour.
+  const observeClickedRef = useRef<Set<number>>(new Set())
 
   // Les révélations d'observation (`observation_result`) restent affichées
   // jusqu'à la fin du tour du joueur (déplacement + indice compris), puis
   // sont effacées au tour suivant.
   useEffect(() => {
     useObservationStore.getState().clear()
+    observeClickedRef.current = new Set()
   }, [view?.current_player])
 
   // Un indice sélectionné pour être posé ne doit pas survivre à un
@@ -87,6 +96,8 @@ export function GameScreen() {
     if (!card || card.is_locked) return
 
     if (view.is_my_turn && view.current_turn_phase === 'observe' && view.observations_this_turn < 2) {
+      if (observeClickedRef.current.has(cardId)) return
+      observeClickedRef.current.add(cardId)
       send({ type: 'game_action', payload: { action: 'observe', card_id: cardId } })
       return
     }
@@ -97,6 +108,37 @@ export function GameScreen() {
         payload: { action: 'place_clue', clue_id: selectedClueId, card_id: cardId },
       })
       setSelectedClueId(null)
+    }
+  }
+
+  // Point d'entrée unique du drag&drop (déplacement de carte en phase Move,
+  // pose d'indice par glisser-déposer en phase Indice) : un seul DndContext
+  // englobe le plateau et la pioche/`ClueBoard` pour permettre de glisser un
+  // indice depuis l'aside jusque sur une carte du plateau.
+  function handleDragEnd(event: DragEndEvent) {
+    if (!view) return
+    const { active, over } = event
+    if (!over) return
+    const activeData = active.data.current as { cardId?: number; clueId?: string } | undefined
+
+    if (activeData?.clueId != null) {
+      const cardId = (over.data.current as { cardId?: number } | undefined)?.cardId
+      if (cardId == null) return
+      send({
+        type: 'game_action',
+        payload: { action: 'place_clue', clue_id: activeData.clueId, card_id: cardId },
+      })
+      setSelectedClueId(null)
+      return
+    }
+
+    if (activeData?.cardId != null) {
+      const to = over.data.current as { row: number; col: number } | undefined
+      if (!to) return
+      send({
+        type: 'game_action',
+        payload: { action: 'move', card_id: activeData.cardId, to: { row: to.row, col: to.col } },
+      })
     }
   }
 
@@ -157,25 +199,29 @@ export function GameScreen() {
         <PhaseStepper />
       </div>
 
-      <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
-        <div className="flex flex-col items-center gap-3">
-          <Board onCardActivate={handleCardActivate} />
-          <HistorySlider />
-        </div>
-        <aside className="space-y-4">
-          <div>
-            <h2 className="mb-2 text-sm font-semibold text-gold">Indices</h2>
-            <div className="flex items-start gap-3">
-              <CluePile />
-              <ClueBoard selectedClueId={selectedClueId} onSelectClue={setSelectedClueId} />
+      <DndContext onDragEnd={handleDragEnd}>
+        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
+          <div className="flex flex-col items-center gap-3">
+            <Board onCardActivate={handleCardActivate} />
+            <HistorySlider />
+          </div>
+          <aside className="space-y-4">
+            <div>
+              <h2 className="mb-2 text-sm font-semibold text-gold">Indices</h2>
+              <div className="flex items-start gap-3">
+                <CluePile />
+                <ClueBoard selectedClueId={selectedClueId} onSelectClue={setSelectedClueId} />
+              </div>
             </div>
-          </div>
-          <div>
-            <h2 className="mb-2 text-sm font-semibold text-gold">Joueurs</h2>
-            <PlayerList />
-          </div>
-        </aside>
-      </div>
+            <ScorePanel />
+            <AffinityCardPanel />
+            <div>
+              <h2 className="mb-2 text-sm font-semibold text-gold">Joueurs</h2>
+              <PlayerList />
+            </div>
+          </aside>
+        </div>
+      </DndContext>
     </main>
   )
 }

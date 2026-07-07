@@ -37,6 +37,11 @@ const baseView: PlayerView = {
   objective_shape: null,
   result: null,
   history_enabled: true,
+  score_estimate: null,
+  score_tiers: [
+    [7, 'honorable'],
+    [11, 'glorieuse'],
+  ],
 }
 
 describe('useGameStore', () => {

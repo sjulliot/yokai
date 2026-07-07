@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { CSSProperties } from 'react'
-import { useDraggable } from '@dnd-kit/core'
+import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { motion } from 'framer-motion'
 import { useGameStore } from '../../store/useGameStore'
@@ -27,6 +27,7 @@ interface YokaiCardProps {
   card: CardView
   style?: CSSProperties
   draggable: boolean
+  clueDropTarget?: boolean
   onActivate: () => void
 }
 
@@ -39,7 +40,7 @@ interface YokaiCardProps {
  * Le flip 3D (Framer Motion) ne s'active que pour (1) et pour les cartes
  * révélées par une action `observe` du tour en cours.
  */
-export function YokaiCard({ card, style, draggable, onActivate }: YokaiCardProps) {
+export function YokaiCard({ card, style, draggable, clueDropTarget = false, onActivate }: YokaiCardProps) {
   const phase = useGameStore((s) => s.view?.phase)
   const reveal = useObservationStore((s) => s.reveals.find((r) => r.card_id === card.id))
   const placedClueColors = useGameStore((s) => {
@@ -54,6 +55,15 @@ export function YokaiCard({ card, style, draggable, onActivate }: YokaiCardProps
     data: { cardId: card.id },
     disabled: !draggable,
   })
+  const { setNodeRef: setDropRef, isOver: isClueDragOver } = useDroppable({
+    id: `clue-drop-${card.id}`,
+    data: { cardId: card.id },
+    disabled: !clueDropTarget,
+  })
+  function setRefs(node: HTMLElement | null) {
+    setNodeRef(node)
+    setDropRef(node)
+  }
 
   const isFlashRevealed = reveal !== undefined
   const isFrontShown = phase === 'finished' || isFlashRevealed
@@ -83,9 +93,9 @@ export function YokaiCard({ card, style, draggable, onActivate }: YokaiCardProps
     <motion.div
       layout={!isDragging}
       layoutId={isDragging ? undefined : `yokai-card-${card.id}`}
-      ref={setNodeRef}
+      ref={setRefs}
       style={wrapperStyle}
-      className="relative"
+      className={`relative ${clueDropTarget && isClueDragOver ? 'ring-2 ring-gold' : ''}`}
       {...(draggable ? listeners : {})}
       {...(draggable ? attributes : {})}
     >

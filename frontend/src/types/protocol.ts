@@ -62,6 +62,13 @@ export interface HistoryEntry {
   details: Record<string, unknown>
 }
 
+export interface ScoreEstimate {
+  low: number
+  high: number
+  low_tier: 'honorable' | 'glorieuse' | 'legendaire'
+  high_tier: 'honorable' | 'glorieuse' | 'legendaire'
+}
+
 export interface GameResult {
   victory: boolean
   reasons: string[]
@@ -97,6 +104,8 @@ export interface PlayerView {
   objective_shape: string | null
   result: GameResult | null
   history_enabled: boolean
+  score_estimate: ScoreEstimate | null
+  score_tiers: [number, string][]
 }
 
 export type ClientAction =

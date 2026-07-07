@@ -48,6 +48,15 @@ def _has_adjacent_pair(positions_a: set, positions_b: set) -> bool:
     return False
 
 
+def _tier_for_score(score: int, num_players: int) -> str:
+    reference_players = min(max(num_players, 2), 4)
+    tiers = SCORE_TIERS[reference_players]
+    for threshold, name in tiers:
+        if score <= threshold:
+            return name
+    return "legendaire"
+
+
 def compute_score(state: GameState) -> tuple[int, str]:
     """Calcul du score post-victoire uniquement (n'affecte jamais check_victory).
 
@@ -68,12 +77,26 @@ def compute_score(state: GameState) -> tuple[int, str]:
             score += 2
     score += 5 * len(state.clue_pile)
 
-    reference_players = min(max(len(state.players_order), 2), 4)
-    tiers = SCORE_TIERS[reference_players]
-    tier = "legendaire"
-    for threshold, name in tiers:
-        if score <= threshold:
-            tier = name
-            break
-
+    tier = _tier_for_score(score, len(state.players_order))
     return score, tier
+
+
+def estimate_live_score(state: GameState) -> tuple[int, int, str, str]:
+    """Fourchette de score affichable en cours de partie, calculée uniquement à partir
+    d'informations publiques (nombre d'indices posés/non posés/restants) — jamais des
+    vraies couleurs, qui doivent rester secrètes jusqu'à la fin de partie. Chaque indice
+    déjà posé vaut -1 (pire cas) à +1 (meilleur cas), sauf en indices aveugles où il vaut
+    toujours +1 (déterministe).
+    """
+    placed = [c for c in state.revealed_clues if c.played_on_card_id is not None]
+    unplaced_count = len(state.revealed_clues) - len(placed)
+    base = 2 * unplaced_count + 5 * len(state.clue_pile)
+
+    if state.config.blind_clues:
+        base += len(placed)
+        low = high = base
+    else:
+        low, high = base - len(placed), base + len(placed)
+
+    num_players = len(state.players_order)
+    return low, high, _tier_for_score(low, num_players), _tier_for_score(high, num_players)

@@ -120,7 +120,7 @@ class GameEngine:
             else None
         )
 
-        state.current_player_index = 0
+        state.current_player_index = self.rng.randrange(len(state.players_order))
         state.current_turn_phase = TurnPhase.OBSERVE
         state.observations_this_turn = 0
         state.turn_number = 1

@@ -1,4 +1,8 @@
+import type { CSSProperties } from 'react'
+import { useDraggable } from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 import { useGameStore } from '../../store/useGameStore'
+import type { ClueView } from '../../types/protocol'
 import { ClueColorSwatch } from './ClueColorSwatch'
 
 interface ClueBoardProps {
@@ -9,8 +13,9 @@ interface ClueBoardProps {
 /**
  * Indices révélés, étalés (pas empilés) sauf en mode `stack_clues` où seul
  * l'indice non posé avec le plus grand `order_revealed` est jouable (marqué
- * "▲"). Sélectionner un indice ici puis cliquer une carte non verrouillée du
- * plateau (en phase Indice) déclenche `place_clue` — voir `GameScreen`.
+ * "▲"). Un indice jouable peut être posé de deux façons équivalentes :
+ * sélection ici puis clic sur une carte (`GameScreen::handleCardActivate`),
+ * ou glisser-déposer directement sur la carte (`GameScreen::handleDragEnd`).
  */
 export function ClueBoard({ selectedClueId, onSelectClue }: ClueBoardProps) {
   const view = useGameStore((s) => s.view)
@@ -32,23 +37,60 @@ export function ClueBoard({ selectedClueId, onSelectClue }: ClueBoardProps) {
         const isSelected = selectedClueId === clue.id
 
         return (
-          <button
+          <ClueTile
             key={clue.id}
-            type="button"
-            disabled={!selectable}
-            onClick={() => onSelectClue(isSelected ? null : clue.id)}
-            className={[
-              'flex h-16 w-12 flex-col items-center justify-center gap-1 rounded-md border-2 text-[10px]',
-              isSelected ? 'border-gold bg-gold/20' : 'border-gold/20 bg-black/20',
-              !selectable ? 'opacity-70' : '',
-            ].join(' ')}
-          >
-            <ClueColorSwatch colors={clue.colors} />
-            {view.config.stack_clues && isTop && <span className="text-gold">▲</span>}
-          </button>
+            clue={clue}
+            selectable={selectable}
+            isSelected={isSelected}
+            showStackMarker={view.config.stack_clues && isTop}
+            onSelect={() => onSelectClue(isSelected ? null : clue.id)}
+          />
         )
       })}
       {unplayed.length === 0 && <p className="text-xs text-paper/40">Aucun indice à poser</p>}
     </div>
+  )
+}
+
+interface ClueTileProps {
+  clue: ClueView
+  selectable: boolean
+  isSelected: boolean
+  showStackMarker: boolean
+  onSelect: () => void
+}
+
+function ClueTile({ clue, selectable, isSelected, showStackMarker, onSelect }: ClueTileProps) {
+  const { setNodeRef, listeners, attributes, transform, isDragging } = useDraggable({
+    id: `clue-${clue.id}`,
+    data: { clueId: clue.id },
+    disabled: !selectable,
+  })
+
+  const style: CSSProperties = {
+    transform: transform ? CSS.Translate.toString(transform) : undefined,
+    zIndex: isDragging ? 20 : undefined,
+    cursor: selectable ? 'grab' : 'default',
+    touchAction: selectable ? 'none' : undefined,
+  }
+
+  return (
+    <button
+      ref={setNodeRef}
+      style={style}
+      type="button"
+      disabled={!selectable}
+      onClick={onSelect}
+      {...(selectable ? listeners : {})}
+      {...(selectable ? attributes : {})}
+      className={[
+        'flex h-16 w-12 flex-col items-center justify-center gap-1 rounded-md border-2 text-[10px]',
+        isSelected ? 'border-gold bg-gold/20' : 'border-gold/20 bg-black/20',
+        !selectable ? 'opacity-70' : '',
+      ].join(' ')}
+    >
+      <ClueColorSwatch colors={clue.colors} />
+      {showStackMarker && <span className="text-gold">▲</span>}
+    </button>
   )
 }

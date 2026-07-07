@@ -78,6 +78,15 @@ class GameConfig(BaseModel):
             raise ValueError("il faut au moins 2 cartes par couleur")
         return v
 
+    @field_validator("clue_counts", mode="before")
+    @classmethod
+    def coerce_clue_counts_keys(cls, v: dict) -> dict:
+        # JSON n'a que des clés string ; on les recoerce en int avant la
+        # validation Literal (qui ne coerce pas str -> int elle-même).
+        if isinstance(v, dict):
+            return {int(size): count for size, count in v.items()}
+        return v
+
     @field_validator("clue_counts")
     @classmethod
     def validate_clue_counts(cls, v: dict[int, int]) -> dict[int, int]:

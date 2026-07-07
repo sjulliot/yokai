@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.core.engine import deduction
 from app.core.engine.enums import GamePhase, PlayerRole
 from app.core.engine.models import GameState, PlayerKnowledge, YokaiCard
+from app.core.engine.scoring import SCORE_TIERS, estimate_live_score
 
 
 def _resolve_card_knowledge(
@@ -120,6 +121,13 @@ def build_player_view(
 
     in_progress = state.phase == GamePhase.IN_PROGRESS
 
+    score_estimate = None
+    if in_progress:
+        low, high, low_tier, high_tier = estimate_live_score(state)
+        score_estimate = {"low": low, "high": high, "low_tier": low_tier, "high_tier": high_tier}
+
+    reference_players = min(max(len(state.players_order), 2), 4)
+
     return {
         "my_pseudo": pseudo,
         "my_role": my_role.value,
@@ -143,4 +151,6 @@ def build_player_view(
         "objective_shape": state.objective_card.shape_name if state.objective_card else None,
         "result": state.result.model_dump(mode="json") if state.result else None,
         "history_enabled": state.config.history_enabled,
+        "score_estimate": score_estimate,
+        "score_tiers": SCORE_TIERS[reference_players],
     }
