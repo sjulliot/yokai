@@ -48,7 +48,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           useGameStore.getState().applyState(event.payload)
           break
         case 'observation_result':
-          useObservationStore.getState().setReveal(event.payload)
+          useObservationStore.getState().addReveal(event.payload)
           break
         case 'history':
           useHistoryStore.getState().setEntries(event.payload.entries)

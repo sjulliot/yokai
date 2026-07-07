@@ -1,19 +1,26 @@
 import { create } from 'zustand'
 
+interface Reveal {
+  card_id: number
+  color: string
+}
+
 interface ObservationStoreState {
-  reveal: { card_id: number; color: string } | null
-  setReveal: (reveal: { card_id: number; color: string }) => void
+  reveals: Reveal[]
+  addReveal: (reveal: Reveal) => void
   clear: () => void
 }
 
 /**
- * Révélation éphémère reçue via `observation_result` : la vraie couleur d'une
- * carte que le joueur vient d'observer, à afficher brièvement sur le plateau
- * puis effacer (le composant qui consomme ce store est responsable du délai
- * d'affichage, ce store ne fait que porter la dernière valeur reçue).
+ * Révélations reçues via `observation_result` pendant le tour en cours : la
+ * vraie couleur des cartes que le joueur vient d'observer (jusqu'à 2 par
+ * tour). Affichées sur le plateau jusqu'à la fin du tour (déplacement +
+ * indice compris), puis effacées — le joueur doit ensuite s'en souvenir
+ * lui-même (perfect memory OFF).
  */
 export const useObservationStore = create<ObservationStoreState>((set) => ({
-  reveal: null,
-  setReveal: (reveal) => set({ reveal }),
-  clear: () => set({ reveal: null }),
+  reveals: [],
+  addReveal: (reveal) =>
+    set((s) => ({ reveals: [...s.reveals.filter((r) => r.card_id !== reveal.card_id), reveal] })),
+  clear: () => set({ reveals: [] }),
 }))

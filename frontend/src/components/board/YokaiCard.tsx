@@ -36,12 +36,12 @@ interface YokaiCardProps {
  * 2. verrouillée -> dos + cadenas, teinté si un indice à 1 couleur l'a déjà identifiée
  * 3. couleur connue (observée) -> dos teinté + œil
  * 4. sinon -> dos neutre
- * Le flip 3D (Framer Motion) ne s'active que pour (1) et pour le flash
- * éphémère de révélation juste après une action `observe`.
+ * Le flip 3D (Framer Motion) ne s'active que pour (1) et pour les cartes
+ * révélées par une action `observe` du tour en cours.
  */
 export function YokaiCard({ card, style, draggable, onActivate }: YokaiCardProps) {
   const phase = useGameStore((s) => s.view?.phase)
-  const reveal = useObservationStore((s) => s.reveal)
+  const reveal = useObservationStore((s) => s.reveals.find((r) => r.card_id === card.id))
   const placedClueColors = useGameStore((s) => {
     if (!card.is_locked || !s.view) return null
     const clueId = s.view.played_clues[card.id]
@@ -55,9 +55,9 @@ export function YokaiCard({ card, style, draggable, onActivate }: YokaiCardProps
     disabled: !draggable,
   })
 
-  const isFlashRevealed = reveal?.card_id === card.id
+  const isFlashRevealed = reveal !== undefined
   const isFrontShown = phase === 'finished' || isFlashRevealed
-  const frontColor = phase === 'finished' ? card.known_color : isFlashRevealed ? (reveal?.color ?? null) : null
+  const frontColor = phase === 'finished' ? card.known_color : isFlashRevealed ? reveal.color : null
 
   const backTint = useMemo(() => {
     if (card.is_locked) {
@@ -76,6 +76,7 @@ export function YokaiCard({ card, style, draggable, onActivate }: YokaiCardProps
     transform: transform ? CSS.Translate.toString(transform) : undefined,
     zIndex: isDragging ? 20 : undefined,
     cursor: draggable ? 'grab' : 'default',
+    touchAction: draggable ? 'none' : undefined,
   }
 
   return (

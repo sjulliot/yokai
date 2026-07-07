@@ -62,16 +62,14 @@ export function GameScreen() {
   const { send } = useWebSocket()
   const lastError = useErrorStore((s) => s.lastError)
   const clearError = useErrorStore((s) => s.clear)
-  const reveal = useObservationStore((s) => s.reveal)
   const [selectedClueId, setSelectedClueId] = useState<string | null>(null)
 
-  // Le flash de révélation (`observation_result`) ne doit s'afficher que
-  // brièvement : on l'efface nous-mêmes après un court délai.
+  // Les révélations d'observation (`observation_result`) restent affichées
+  // jusqu'à la fin du tour du joueur (déplacement + indice compris), puis
+  // sont effacées au tour suivant.
   useEffect(() => {
-    if (!reveal) return
-    const timeout = setTimeout(() => useObservationStore.getState().clear(), 2500)
-    return () => clearTimeout(timeout)
-  }, [reveal])
+    useObservationStore.getState().clear()
+  }, [view?.current_player])
 
   // Un indice sélectionné pour être posé ne doit pas survivre à un
   // changement de phase/joueur (fin de tour, tour suivant...).
