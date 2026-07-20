@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useGameStore } from '../../store/useGameStore'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { useSyncedValue } from '../../hooks/useSyncedValue'
@@ -18,14 +19,40 @@ const DEFAULT_GAME_TIMER = 600
  * `set_config` avec uniquement le(s) champ(s) modifié(s) — sauf `colors` et
  * `cards_per_color` qui recalculent systématiquement `clue_counts` par
  * défaut (une combinaison à 3 couleurs devient invalide si moins de 3
- * couleurs sont en jeu). Les éditions manuelles de `clue_counts` via
- * `ClueCountsEditor` restent ensuite prioritaires tant que `colors` ou
- * `cards_per_color` ne changent pas à nouveau.
+ * couleurs sont en jeu). `clue_counts` est aussi recalculé automatiquement
+ * quand le nombre de joueurs connectés change (table officielle 2/3/4
+ * joueurs), tant qu'il correspond encore à la valeur par défaut pour
+ * l'ancien nombre de joueurs. Les éditions manuelles de `clue_counts` via
+ * `ClueCountsEditor` restent ensuite prioritaires.
  */
 export function GameSettingsForm() {
   const config = useGameStore((s) => s.view?.config)
   const numPlayers = useGameStore((s) => s.view?.connected_players.length ?? 0)
   const { send } = useWebSocket()
+
+  const configRef = useRef(config)
+  configRef.current = config
+  const numPlayersRef = useRef(numPlayers)
+
+  useEffect(() => {
+    const prevPlayers = numPlayersRef.current
+    numPlayersRef.current = numPlayers
+    const currentConfig = configRef.current
+    if (!currentConfig || prevPlayers === numPlayers) return
+
+    const numColors = currentConfig.colors.length
+    const wasAuto =
+      JSON.stringify(currentConfig.clue_counts) ===
+      JSON.stringify(defaultClueCounts(numColors, currentConfig.cards_per_color, prevPlayers))
+    if (!wasAuto) return
+
+    send({
+      type: 'set_config',
+      payload: {
+        clue_counts: defaultClueCounts(numColors, currentConfig.cards_per_color, numPlayers),
+      },
+    })
+  }, [numPlayers, send])
 
   const [cardsPerColor, setCardsPerColor] = useSyncedValue(
     config?.cards_per_color ?? MIN_CARDS_PER_COLOR,

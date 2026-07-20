@@ -5,6 +5,7 @@ import { useGameStore } from '../store/useGameStore'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useErrorStore } from '../store/useErrorStore'
 import { useObservationStore } from '../store/useObservationStore'
+import { useUiStore } from '../store/useUiStore'
 import type { GameResult } from '../types/protocol'
 import { Board } from '../components/board/Board'
 import { CluePile } from '../components/clues/CluePile'
@@ -14,6 +15,7 @@ import { PhaseStepper } from '../components/turn/PhaseStepper'
 import { TimerBadge } from '../components/turn/TimerBadge'
 import { PlayerList } from '../components/players/PlayerList'
 import { AffinityCardPanel } from '../components/players/AffinityCardPanel'
+import { ObjectiveCardPanel } from '../components/players/ObjectiveCardPanel'
 import { ScorePanel } from '../components/players/ScorePanel'
 import { SpectatorViewSwitcher } from '../components/spectator/SpectatorViewSwitcher'
 import { HistorySlider } from '../components/history/HistorySlider'
@@ -93,21 +95,36 @@ export function GameScreen() {
   function handleCardActivate(cardId: number) {
     if (!view) return
     const card = view.cards.find((c) => c.id === cardId)
-    if (!card || card.is_locked) return
+    if (!card) return
 
-    if (view.is_my_turn && view.current_turn_phase === 'observe' && view.observations_this_turn < 2) {
+    const canObserve =
+      !card.is_locked &&
+      view.is_my_turn &&
+      view.current_turn_phase === 'observe' &&
+      view.observations_this_turn < 2
+    if (canObserve) {
       if (observeClickedRef.current.has(cardId)) return
       observeClickedRef.current.add(cardId)
       send({ type: 'game_action', payload: { action: 'observe', card_id: cardId } })
       return
     }
 
-    if (view.is_my_turn && view.current_turn_phase === 'clue' && selectedClueId) {
+    const canPlaceClue =
+      !card.is_locked && view.is_my_turn && view.current_turn_phase === 'clue' && selectedClueId
+    if (canPlaceClue) {
       send({
         type: 'game_action',
         payload: { action: 'place_clue', clue_id: selectedClueId, card_id: cardId },
       })
       setSelectedClueId(null)
+      return
+    }
+
+    // Hors d'un moment où le clic sert à choisir quoi observer/jouer (pas mon tour, phase
+    // déplacement, observations épuisées, carte verrouillée, ou indice pas encore sélectionné) :
+    // le clic ouvre mes notes/déductions personnelles sur cette carte.
+    if (view.phase !== 'finished') {
+      useUiStore.getState().setOpenPopoverCardId(cardId)
     }
   }
 
@@ -147,7 +164,11 @@ export function GameScreen() {
   const canUndoMove = view.is_my_turn && view.current_turn_phase === 'clue'
 
   return (
-    <main className="min-h-screen bg-ink px-4 py-6 text-paper">
+    <main
+      className={`min-h-screen bg-ink px-4 py-6 text-paper transition-shadow duration-500 ${
+        view.is_my_turn ? 'shadow-[inset_0_0_0_2px_rgba(212,166,87,0.5)]' : ''
+      }`}
+    >
       <header className="mx-auto mb-4 flex max-w-5xl flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl text-gold">Yōkai</h1>
@@ -213,6 +234,7 @@ export function GameScreen() {
               </div>
             </div>
             <ScorePanel />
+            <ObjectiveCardPanel />
             <AffinityCardPanel />
             <div>
               <h2 className="mb-2 text-sm font-semibold text-gold">Joueurs</h2>

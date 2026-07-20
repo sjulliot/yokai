@@ -141,6 +141,7 @@ class Observation(BaseModel):
 class PlayerNote(BaseModel):
     text: str = ""
     forced_color: str | None = None
+    excluded_colors: list[str] = Field(default_factory=list)
 
 
 class PlayerKnowledge(BaseModel):

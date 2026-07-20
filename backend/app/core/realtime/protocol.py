@@ -65,6 +65,18 @@ def parse_set_deduction_payload(payload: dict) -> tuple[int, str | None]:
     return card_id, forced_color
 
 
+def parse_set_deduction_exclusion_payload(payload: dict) -> tuple[int, list[str]]:
+    card_id = payload.get("card_id")
+    excluded_colors = payload.get("excluded_colors")
+    if not isinstance(card_id, int):
+        raise BadPayloadError("payload d'exclusion invalide")
+    if not isinstance(excluded_colors, list) or not all(
+        isinstance(color, str) for color in excluded_colors
+    ):
+        raise BadPayloadError("excluded_colors invalide")
+    return card_id, excluded_colors
+
+
 def parse_kick_player_payload(payload: dict) -> str:
     target = payload.get("pseudo")
     if not isinstance(target, str) or not target:

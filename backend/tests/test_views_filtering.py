@@ -146,6 +146,24 @@ def test_perfect_memory_reveals_own_observation_only_to_observer():
     assert real_colors_leaked(bob_view, allowed_known={1, 4}) == set()
 
 
+def test_own_observation_survives_a_later_multi_color_clue_lock():
+    """Régression : une carte personnellement observée (perfect_memory) ne doit jamais
+    redevenir "inconnue" pour son observateur quand un indice à 2-3 couleurs est ensuite
+    posé dessus — l'indice public est une information en MOINS précise, jamais en plus.
+    """
+    state = build_state(perfect_memory=True)
+    # Carte 2 : verrouillée par un indice à 2 couleurs (blue/green), vraie couleur "blue".
+    state.players["alice"].observations[2] = Observation(card_id=2, color="blue", turn_number=1)
+
+    alice_view = build_player_view(state, "alice", PlayerRole.PLAYER, None, {"alice", "bob"})
+    bob_view = build_player_view(state, "bob", PlayerRole.PLAYER, None, {"alice", "bob"})
+
+    assert card_map(alice_view)[2]["known_color"] == "blue"
+    # Bob, lui, n'a pas observé cette carte : il ne doit voir que l'info publique de l'indice.
+    assert card_map(bob_view)[2]["known_color"] is None
+    assert card_map(bob_view)[2]["possible_colors"] == ["blue", "green"]
+
+
 def test_without_perfect_memory_observation_never_appears_as_known_color():
     state = build_state(perfect_memory=False)
 

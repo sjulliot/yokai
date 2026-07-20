@@ -42,6 +42,16 @@ export function Board({ onCardActivate }: BoardProps) {
     return reconstructBoardAtSeq(entries, historyIndex)
   }, [isHistory, historyIndex, entries])
 
+  // Carte concernée par l'étape d'historique actuellement affichée (observe/move/place_clue) :
+  // mise en évidence pour qu'on sache immédiatement quelle carte a été touchée à ce tour-là,
+  // en plus des badges "déjà observée par" qui, eux, s'accumulent sur toute la partie.
+  const highlightedCardId = useMemo(() => {
+    if (!isHistory || historyIndex === null) return null
+    const entry = entries.find((e) => e.seq === historyIndex)
+    const cardId = entry?.details.card_id
+    return typeof cardId === 'number' ? cardId : null
+  }, [isHistory, historyIndex, entries])
+
   const displayCards = useMemo<CardView[]>(() => {
     const cards = view?.cards ?? []
     if (!isHistory || !reconstructed) return cards
@@ -97,6 +107,7 @@ export function Board({ onCardActivate }: BoardProps) {
             draggable={canDrag && !card.is_locked}
             clueDropTarget={canPlaceClue && !card.is_locked}
             onActivate={() => !isHistory && onCardActivate(card.id)}
+            highlighted={isHistory && card.id === highlightedCardId}
           />,
         )
       } else {

@@ -16,16 +16,21 @@ def _resolve_card_knowledge(
 
     Ne JAMAIS exposer `card.color` brut autrement que via ce calcul — cœur de la sécurité
     anti-triche (voir doc du contrat réseau).
+
+    La connaissance personnelle (observation en perfect memory) a toujours priorité : elle ne
+    doit jamais être perdue quand un indice est ensuite posé sur la carte, même si cet indice ne
+    révèle publiquement qu'un sous-ensemble de couleurs (voir régression corrigée : la carte
+    redevenait "inconnue" côté vue dès qu'elle était verrouillée par un indice à 2-3 couleurs).
     """
+    if state.config.perfect_memory and card.id in knowledge.observations:
+        return knowledge.observations[card.id].color, []
+
     if card.is_locked and not card.locked_face_down:
         clue_id = state.played_clues.get(card.id)
         clue = next((c for c in state.revealed_clues if c.id == clue_id), None) if clue_id else None
         if clue is not None and len(clue.colors) == 1:
             return clue.colors[0], []
         return None, possible_map.get(card.id, [])
-
-    if state.config.perfect_memory and card.id in knowledge.observations:
-        return knowledge.observations[card.id].color, []
 
     return None, possible_map.get(card.id, [])
 
@@ -99,7 +104,11 @@ def build_player_view(
     my_notes: dict[int, dict] = {}
     if knowledge is not None:
         my_notes = {
-            card_id: {"text": note.text, "forced_color": note.forced_color}
+            card_id: {
+                "text": note.text,
+                "forced_color": note.forced_color,
+                "excluded_colors": list(note.excluded_colors),
+            }
             for card_id, note in knowledge.notes.items()
         }
 

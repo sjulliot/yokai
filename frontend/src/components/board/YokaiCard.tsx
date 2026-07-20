@@ -29,6 +29,7 @@ interface YokaiCardProps {
   draggable: boolean
   clueDropTarget?: boolean
   onActivate: () => void
+  highlighted?: boolean
 }
 
 /**
@@ -40,7 +41,14 @@ interface YokaiCardProps {
  * Le flip 3D (Framer Motion) ne s'active que pour (1) et pour les cartes
  * révélées par une action `observe` du tour en cours.
  */
-export function YokaiCard({ card, style, draggable, clueDropTarget = false, onActivate }: YokaiCardProps) {
+export function YokaiCard({
+  card,
+  style,
+  draggable,
+  clueDropTarget = false,
+  onActivate,
+  highlighted = false,
+}: YokaiCardProps) {
   const phase = useGameStore((s) => s.view?.phase)
   const reveal = useObservationStore((s) => s.reveals.find((r) => r.card_id === card.id))
   const placedClueColors = useGameStore((s) => {
@@ -69,8 +77,14 @@ export function YokaiCard({ card, style, draggable, clueDropTarget = false, onAc
   const isFrontShown = phase === 'finished' || isFlashRevealed
   const frontColor = phase === 'finished' ? card.known_color : isFlashRevealed ? reveal.color : null
 
-  const showNoteTrigger = card.known_color === null && phase !== 'finished'
+  // Le popover de déduction reste accessible tant que la partie n'est pas terminée, y compris
+  // sur une carte verrouillée/connue : la déduction/note personnelle ne doit jamais disparaître
+  // simplement parce qu'un indice a ensuite été posé dessus.
+  const showNoteTrigger = phase !== 'finished'
   const forcedColor = useGameStore((s) => s.view?.my_notes[card.id]?.forced_color ?? null)
+  const hasExclusionNote = useGameStore(
+    (s) => (s.view?.my_notes[card.id]?.excluded_colors.length ?? 0) > 0,
+  )
 
   // Un indice à plusieurs couleurs posé sur la carte ne rend pas `known_color` public,
   // mais si j'ai personnellement déduit/observé sa couleur, c'est plus précis que le tag
@@ -95,7 +109,9 @@ export function YokaiCard({ card, style, draggable, clueDropTarget = false, onAc
       layoutId={isDragging ? undefined : `yokai-card-${card.id}`}
       ref={setRefs}
       style={wrapperStyle}
-      className={`relative ${clueDropTarget && isClueDragOver ? 'ring-2 ring-gold' : ''}`}
+      className={`relative rounded-lg ${clueDropTarget && isClueDragOver ? 'ring-2 ring-gold' : ''} ${
+        highlighted ? 'ring-2 ring-sky-400 ring-offset-2 ring-offset-ink' : ''
+      }`}
       {...(draggable ? listeners : {})}
       {...(draggable ? attributes : {})}
     >
@@ -174,6 +190,15 @@ export function YokaiCard({ card, style, draggable, clueDropTarget = false, onAc
           className="pointer-events-none absolute -bottom-1.5 -right-1.5 z-10 h-4 w-4 rounded-full border-2 border-gold"
           style={{ backgroundColor: getYokaiHex(forcedColor), boxShadow: '0 0 0 2px rgba(212,166,87,0.6)' }}
         />
+      )}
+
+      {showNoteTrigger && !forcedColor && hasExclusionNote && (
+        <div
+          title="J'ai exclu au moins une couleur pour cette carte"
+          className="pointer-events-none absolute -bottom-1.5 -right-1.5 z-10 flex h-4 w-4 items-center justify-center rounded-full border-2 border-lacquer bg-ink text-[9px] text-lacquer"
+        >
+          ✕
+        </div>
       )}
 
       {showNoteTrigger && <DeductionPopover card={card} />}

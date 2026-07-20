@@ -17,6 +17,7 @@ from app.core.realtime.protocol import (
     parse_join_payload,
     parse_kick_player_payload,
     parse_move_target,
+    parse_set_deduction_exclusion_payload,
     parse_set_deduction_payload,
     parse_set_note_payload,
     parse_set_spectator_view_payload,
@@ -176,15 +177,20 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 await broadcast_history(engine, session_manager)
                 continue
 
-            if msg_type in ("set_note", "set_deduction"):
+            if msg_type in ("set_note", "set_deduction", "set_deduction_exclusion"):
                 try:
                     async with game_lock:
                         if msg_type == "set_note":
                             card_id, text = parse_set_note_payload(payload)
                             engine.set_note(pseudo, card_id, text)
-                        else:
+                        elif msg_type == "set_deduction":
                             card_id, forced_color = parse_set_deduction_payload(payload)
                             engine.set_deduction(pseudo, card_id, forced_color)
+                        else:
+                            card_id, excluded_colors = parse_set_deduction_exclusion_payload(
+                                payload
+                            )
+                            engine.set_deduction_exclusion(pseudo, card_id, excluded_colors)
                 except BadPayloadError as exc:
                     await websocket.send_json(error_event("BAD_REQUEST", str(exc)))
                     continue

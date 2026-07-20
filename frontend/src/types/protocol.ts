@@ -99,7 +99,7 @@ export interface PlayerView {
   is_my_turn: boolean
   turn_deadline: number | null // epoch seconds
   game_deadline: number | null
-  my_notes: Record<number, { text: string; forced_color: string | null }>
+  my_notes: Record<number, { text: string; forced_color: string | null; excluded_colors: string[] }>
   my_affinity_cards: AffinityCardView[]
   objective_shape: string | null
   result: GameResult | null
@@ -129,6 +129,7 @@ export type ClientAction =
     }
   | { type: 'set_note'; payload: { card_id: number; text: string } }
   | { type: 'set_deduction'; payload: { card_id: number; forced_color: string | null } }
+  | { type: 'set_deduction_exclusion'; payload: { card_id: number; excluded_colors: string[] } }
   | { type: 'query_history'; payload: Record<string, never> }
   | { type: 'set_spectator_view'; payload: { target: string | null } }
 

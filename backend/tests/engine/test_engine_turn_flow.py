@@ -271,6 +271,41 @@ def test_set_deduction_invalid_color_raises():
         engine.set_deduction("alice", card_id, "purple")
 
 
+def test_set_deduction_exclusion_invalid_color_raises():
+    engine = start_two_player_game()
+    card_id = next(iter(engine.state.board))
+    with pytest.raises(InvalidConfigError):
+        engine.set_deduction_exclusion("alice", card_id, ["purple"])
+
+
+def test_set_deduction_exclusion_stores_multiple_colors():
+    engine = start_two_player_game()
+    card_id = next(iter(engine.state.board))
+    engine.set_deduction_exclusion("alice", card_id, ["red", "blue"])
+    note = engine.state.players["alice"].notes[card_id]
+    assert note.excluded_colors == ["blue", "red"]
+
+
+def test_forcing_a_color_clears_its_exclusions():
+    engine = start_two_player_game()
+    card_id = next(iter(engine.state.board))
+    engine.set_deduction_exclusion("alice", card_id, ["red"])
+    engine.set_deduction("alice", card_id, "red")
+    note = engine.state.players["alice"].notes[card_id]
+    assert note.forced_color == "red"
+    assert note.excluded_colors == []
+
+
+def test_excluding_the_forced_color_clears_it():
+    engine = start_two_player_game()
+    card_id = next(iter(engine.state.board))
+    engine.set_deduction("alice", card_id, "red")
+    engine.set_deduction_exclusion("alice", card_id, ["red"])
+    note = engine.state.players["alice"].notes[card_id]
+    assert note.forced_color is None
+    assert note.excluded_colors == ["red"]
+
+
 def test_handle_reveal_clue_empty_pile_raises_clue_not_found():
     config = make_two_player_config(clue_counts={1: 0, 2: 0})
     engine = start_two_player_game(config)

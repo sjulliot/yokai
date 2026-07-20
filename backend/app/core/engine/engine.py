@@ -130,7 +130,9 @@ class GameEngine:
             else None
         )
 
-        state.current_player_index = self.rng.randrange(len(state.players_order))
+        first_player_pool = chosen_holders if chosen_holders else state.players_order
+        first_player_pseudo = self.rng.choice(first_player_pool)
+        state.current_player_index = state.players_order.index(first_player_pseudo)
         state.current_turn_phase = TurnPhase.OBSERVE
         state.observations_this_turn = 0
         state.turn_number = 1
@@ -361,7 +363,24 @@ class GameEngine:
         self._require_card(card_id)
         if forced_color is not None and forced_color not in self.state.config.colors:
             raise InvalidConfigError(f"couleur inconnue : {forced_color}")
-        knowledge.notes.setdefault(card_id, PlayerNote()).forced_color = forced_color
+        note = knowledge.notes.setdefault(card_id, PlayerNote())
+        note.forced_color = forced_color
+        if forced_color is not None:
+            # une affirmation rend les exclusions de cette carte redondantes
+            note.excluded_colors = []
+
+    def set_deduction_exclusion(
+        self, pseudo: str, card_id: int, excluded_colors: list[str]
+    ) -> None:
+        knowledge = self._require_player(pseudo)
+        self._require_card(card_id)
+        unknown = [c for c in excluded_colors if c not in self.state.config.colors]
+        if unknown:
+            raise InvalidConfigError(f"couleur inconnue : {unknown[0]}")
+        note = knowledge.notes.setdefault(card_id, PlayerNote())
+        note.excluded_colors = sorted(set(excluded_colors))
+        if note.forced_color in note.excluded_colors:
+            note.forced_color = None
 
     # ------------------------------------------------------------------
     # Aides privées
