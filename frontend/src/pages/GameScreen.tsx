@@ -97,11 +97,14 @@ export function GameScreen() {
     const card = view.cards.find((c) => c.id === cardId)
     if (!card) return
 
+    // En mode mémoire parfaite, une carte déjà observée reste affichée (known_color) : la
+    // reconsulter est gratuite et ne doit pas être bloquée par le quota d'observations du tour.
+    const alreadyKnown = card.known_color !== null
     const canObserve =
       !card.is_locked &&
       view.is_my_turn &&
       view.current_turn_phase === 'observe' &&
-      view.observations_this_turn < 2
+      (alreadyKnown || view.observations_this_turn < 2)
     if (canObserve) {
       if (observeClickedRef.current.has(cardId)) return
       observeClickedRef.current.add(cardId)

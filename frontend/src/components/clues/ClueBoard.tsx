@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { useGameStore } from '../../store/useGameStore'
+import { useHistorySnapshot } from '../../hooks/useHistorySnapshot'
 import type { ClueView } from '../../types/protocol'
 import { ClueColorSwatch } from './ClueColorSwatch'
 
@@ -16,18 +17,27 @@ interface ClueBoardProps {
  * "▲"). Un indice jouable peut être posé de deux façons équivalentes :
  * sélection ici puis clic sur une carte (`GameScreen::handleCardActivate`),
  * ou glisser-déposer directement sur la carte (`GameScreen::handleDragEnd`).
+ *
+ * En mode historique, la liste affichée est celle des indices révélés mais pas
+ * encore posés à `historyIndex` (pas l'état live), et rien n'est sélectionnable.
  */
 export function ClueBoard({ selectedClueId, onSelectClue }: ClueBoardProps) {
   const view = useGameStore((s) => s.view)
+  const { isHistory, snapshot } = useHistorySnapshot()
   if (!view) return null
 
-  const unplayed = view.revealed_clues.filter((c) => c.played_on_card_id === null)
+  const unplayed =
+    isHistory && snapshot
+      ? view.revealed_clues.filter(
+          (c) => snapshot.revealedClueIds.has(c.id) && !snapshot.placedClueCardIds.has(c.id),
+        )
+      : view.revealed_clues.filter((c) => c.played_on_card_id === null)
   const topOrder =
     view.config.stack_clues && unplayed.length > 0
       ? Math.max(...unplayed.map((c) => c.order_revealed ?? -1))
       : null
 
-  const canSelect = view.is_my_turn && view.current_turn_phase === 'clue'
+  const canSelect = !isHistory && view.is_my_turn && view.current_turn_phase === 'clue'
 
   return (
     <div className="flex flex-wrap gap-2">
@@ -47,7 +57,11 @@ export function ClueBoard({ selectedClueId, onSelectClue }: ClueBoardProps) {
           />
         )
       })}
-      {unplayed.length === 0 && <p className="text-xs text-paper/40">Aucun indice à poser</p>}
+      {unplayed.length === 0 && (
+        <p className="text-xs text-paper/40">
+          {isHistory ? 'Aucun indice disponible à ce moment' : 'Aucun indice à poser'}
+        </p>
+      )}
     </div>
   )
 }

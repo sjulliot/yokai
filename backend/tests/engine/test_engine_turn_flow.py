@@ -347,6 +347,53 @@ def test_handle_observe_twice_by_same_player_does_not_duplicate():
     assert state.board[card_id].observed_by == [first]
 
 
+def test_reobserving_known_card_does_not_consume_turn_budget():
+    """En mode mémoire parfaite (par défaut), une carte déjà observée un tour précédent reste
+    affichée en permanence : la re-consulter est gratuite et ne doit pas compter dans le
+    quota de 2 observations du tour."""
+    engine = start_two_player_game()
+    state = engine.state
+    first, second = state.current_player, other_player(engine, state.current_player)
+    card_ids = list(state.board.keys())
+    known = card_ids[0]
+
+    engine.handle_observe(first, known)
+    engine.handle_observe(first, card_ids[1])
+    play_move_or_skip(engine, first)
+    engine.handle_reveal_clue(first)  # termine le tour d'alice
+    assert state.current_player == second
+
+    engine.handle_observe(second, card_ids[2])
+    engine.handle_observe(second, card_ids[3])
+    play_move_or_skip(engine, second)
+    engine.handle_reveal_clue(second)  # termine le tour de bob, on revient à alice
+    assert state.current_player == first
+    assert state.observations_this_turn == 0
+
+    color = engine.handle_observe(first, known)
+    assert color == state.board[known].color
+    assert state.observations_this_turn == 0  # ne compte pas comme une observation
+
+    # card_ids[2]/[3] : déjà observées par bob, mais pas encore par alice -> comptent bien.
+    engine.handle_observe(first, card_ids[2])
+    engine.handle_observe(first, card_ids[3])
+    assert state.observations_this_turn == 2
+    assert state.current_turn_phase == TurnPhase.MOVE
+
+
+def test_reobserving_known_card_without_perfect_memory_still_counts():
+    engine = start_two_player_game(config=make_two_player_config(perfect_memory=False))
+    state = engine.state
+    first = state.current_player
+    card_id = next(iter(state.board))
+
+    engine.handle_observe(first, card_id)
+    engine.handle_observe(first, card_id)
+
+    assert state.observations_this_turn == 2
+    assert state.current_turn_phase == TurnPhase.MOVE
+
+
 def test_handle_observe_logs_history_entry_without_color():
     engine = start_two_player_game()
     state = engine.state

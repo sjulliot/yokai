@@ -4,6 +4,10 @@ export interface ReconstructedBoardState {
   positions: Map<number, Position>
   lockedCardIds: Set<number>
   observedBy: Map<number, string[]>
+  /** Identifiants des indices révélés (posés ou non) à cet instant de l'historique. */
+  revealedClueIds: Set<string>
+  /** Indice -> carte sur laquelle il a été posé, à cet instant de l'historique. */
+  placedClueCardIds: Map<string, number>
 }
 
 function isPosition(value: unknown): value is Position {
@@ -48,6 +52,8 @@ export function reconstructBoardAtSeq(entries: HistoryEntry[], uptoSeq: number):
 
   const lockedCardIds = new Set<number>()
   const observedBy = new Map<number, string[]>()
+  const revealedClueIds = new Set<string>()
+  const placedClueCardIds = new Map<string, number>()
 
   const sorted = [...entries].sort((a, b) => a.seq - b.seq)
   for (const entry of sorted) {
@@ -60,12 +66,13 @@ export function reconstructBoardAtSeq(entries: HistoryEntry[], uptoSeq: number):
       }
       positions.set(card_id, { row: to.row, col: to.col })
     } else if (entry.action === 'place_clue') {
-      const { card_id } = entry.details
-      if (typeof card_id !== 'number') {
+      const { card_id, clue_id } = entry.details
+      if (typeof card_id !== 'number' || typeof clue_id !== 'string') {
         console.warn('reconstructBoardAtSeq: entrée place_clue malformée, ignorée', entry)
         continue
       }
       lockedCardIds.add(card_id)
+      placedClueCardIds.set(clue_id, card_id)
     } else if (entry.action === 'observe') {
       const { card_id } = entry.details
       if (typeof card_id !== 'number') {
@@ -75,8 +82,15 @@ export function reconstructBoardAtSeq(entries: HistoryEntry[], uptoSeq: number):
       const observers = observedBy.get(card_id) ?? []
       if (!observers.includes(entry.actor)) observers.push(entry.actor)
       observedBy.set(card_id, observers)
+    } else if (entry.action === 'reveal_clue') {
+      const { clue_id } = entry.details
+      if (typeof clue_id !== 'string') {
+        console.warn('reconstructBoardAtSeq: entrée reveal_clue malformée, ignorée', entry)
+        continue
+      }
+      revealedClueIds.add(clue_id)
     }
   }
 
-  return { positions, lockedCardIds, observedBy }
+  return { positions, lockedCardIds, observedBy, revealedClueIds, placedClueCardIds }
 }

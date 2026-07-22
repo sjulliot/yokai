@@ -193,8 +193,6 @@ class GameEngine:
 
     def handle_observe(self, pseudo: str, card_id: int) -> str:
         state = self._check_turn(pseudo, TurnPhase.OBSERVE)
-        if state.observations_this_turn >= 2:
-            raise WrongPhaseError("deux observations ont déjà été faites ce tour")
 
         card = state.board.get(card_id)
         if card is None:
@@ -202,17 +200,24 @@ class GameEngine:
         if card.is_locked:
             raise CardLockedError(f"la carte {card_id} est verrouillée")
 
-        state.players[pseudo].observations[card_id] = Observation(
+        knowledge = state.players[pseudo]
+        already_known = state.config.perfect_memory and card_id in knowledge.observations
+        if not already_known and state.observations_this_turn >= 2:
+            raise WrongPhaseError("deux observations ont déjà été faites ce tour")
+
+        knowledge.observations[card_id] = Observation(
             card_id=card_id, color=card.color, turn_number=state.turn_number
         )
         if pseudo not in card.observed_by:
             card.observed_by.append(pseudo)
-        state.observations_this_turn += 1
-        self._add_history(pseudo, "observe", {"card_id": card_id})
 
-        remaining_unlocked = any(not c.is_locked for c in state.board.values())
-        if state.observations_this_turn >= 2 or not remaining_unlocked:
-            state.current_turn_phase = TurnPhase.MOVE
+        if not already_known:
+            state.observations_this_turn += 1
+            self._add_history(pseudo, "observe", {"card_id": card_id})
+
+            remaining_unlocked = any(not c.is_locked for c in state.board.values())
+            if state.observations_this_turn >= 2 or not remaining_unlocked:
+                state.current_turn_phase = TurnPhase.MOVE
 
         return card.color
 

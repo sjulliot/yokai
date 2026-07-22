@@ -3,10 +3,10 @@ import type { ReactNode } from 'react'
 import { useGameStore } from '../../store/useGameStore'
 import { useHistoryStore } from '../../store/useHistoryStore'
 import { useUiStore } from '../../store/useUiStore'
+import { useHistorySnapshot } from '../../hooks/useHistorySnapshot'
 import type { CardView } from '../../types/protocol'
 import { YokaiCard } from './YokaiCard'
 import { DropZone } from './DropZone'
-import { reconstructBoardAtSeq } from '../history/reconstructBoard'
 
 interface BoardProps {
   onCardActivate: (cardId: number) => void
@@ -31,16 +31,9 @@ function keyOf(row: number, col: number): string {
  */
 export function Board({ onCardActivate }: BoardProps) {
   const view = useGameStore((s) => s.view)
-  const viewMode = useUiStore((s) => s.viewMode)
   const historyIndex = useUiStore((s) => s.historyIndex)
   const entries = useHistoryStore((s) => s.entries)
-
-  const isHistory = viewMode === 'history'
-
-  const reconstructed = useMemo(() => {
-    if (!isHistory || historyIndex === null) return null
-    return reconstructBoardAtSeq(entries, historyIndex)
-  }, [isHistory, historyIndex, entries])
+  const { isHistory, snapshot: reconstructed } = useHistorySnapshot()
 
   // Carte concernée par l'étape d'historique actuellement affichée (observe/move/place_clue) :
   // mise en évidence pour qu'on sache immédiatement quelle carte a été touchée à ce tour-là,
