@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { DndContext } from '@dnd-kit/core'
+import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { useGameStore } from '../store/useGameStore'
 import { useWebSocket } from '../hooks/useWebSocket'
@@ -69,6 +69,12 @@ export function GameScreen() {
   const lastError = useErrorStore((s) => s.lastError)
   const clearError = useErrorStore((s) => s.clear)
   const [selectedClueId, setSelectedClueId] = useState<string | null>(null)
+  // Sans activationConstraint, dnd-kit démarre le drag dès le pointerdown et
+  // avale le click qui suit (voir document listener dans handleStart côté
+  // dnd-kit) — ce qui empêchait le bouton crayon (DeductionPopover) de recevoir
+  // son clic pendant la phase move. Un seuil de distance laisse un simple clic
+  // (sans déplacement) atteindre normalement les enfants interactifs.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
   // Cartes déjà cliquées en phase Observer ce tour-ci : verrou synchrone (pas
   // le store, qui ne se remplit qu'après l'aller-retour serveur) empêchant un
   // double-clic sur la même carte de consommer les deux observations du tour.
@@ -166,6 +172,14 @@ export function GameScreen() {
 
   const canUndoMove = view.is_my_turn && view.current_turn_phase === 'clue'
 
+  // Aucune carte "nouvelle" à observer (le reste du plateau est verrouillé ou déjà connu de moi,
+  // typiquement en mémoire parfaite) : cliquer sur une carte ne fait plus progresser le tour, il
+  // faut passer explicitement (cf. handle_skip_observe côté moteur).
+  const canSkipObserve =
+    view.is_my_turn &&
+    view.current_turn_phase === 'observe' &&
+    view.cards.every((c) => c.is_locked || c.known_color !== null)
+
   return (
     <main
       className={`min-h-screen bg-ink px-4 py-6 text-paper transition-shadow duration-500 ${
@@ -188,6 +202,15 @@ export function GameScreen() {
               className="rounded border border-gold/30 px-3 py-1.5 text-xs text-paper/70 hover:border-gold/60"
             >
               Annuler
+            </button>
+          )}
+          {canSkipObserve && (
+            <button
+              type="button"
+              onClick={() => send({ type: 'game_action', payload: { action: 'skip_observe' } })}
+              className="rounded border border-gold/30 px-3 py-1.5 text-xs text-paper/70 hover:border-gold/60"
+            >
+              Passer l&apos;observation
             </button>
           )}
           {canDeclareEnd && (
@@ -222,7 +245,7 @@ export function GameScreen() {
         <PhaseStepper />
       </div>
 
-      <DndContext onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
           <div className="flex flex-col items-center gap-3">
             <Board onCardActivate={handleCardActivate} />

@@ -21,6 +21,7 @@ export function DeductionPopover({ card }: DeductionPopoverProps) {
       <Popover.Trigger asChild>
         <button
           type="button"
+          onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
           className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-gold/40 bg-ink text-[10px] text-gold"
           aria-label="Notes et déductions"

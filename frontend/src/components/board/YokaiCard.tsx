@@ -89,7 +89,9 @@ export function YokaiCard({
   // Un indice à plusieurs couleurs posé sur la carte ne rend pas `known_color` public,
   // mais si j'ai personnellement déduit/observé sa couleur, c'est plus précis que le tag
   // d'indice brut : on l'affiche à sa place tout en gardant le swatch d'indice visible.
-  const effectiveColor = card.known_color ?? (card.is_locked ? forcedColor : null)
+  // Cette déduction personnelle doit teinter la carte que celle-ci ait déjà reçu un
+  // indice ou non.
+  const effectiveColor = card.known_color ?? forcedColor
 
   const backTint = useMemo(() => {
     return effectiveColor ? getYokaiHex(effectiveColor) : null

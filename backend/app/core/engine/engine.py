@@ -183,9 +183,18 @@ class GameEngine:
         state.game_deadline = None
         state.last_move = None
 
-        for knowledge in state.players.values():
+        # Tout le monde (joueurs et spectateurs de la partie qui vient de se terminer,
+        # notamment ceux ayant rejoint via la vue de fin de partie ouverte à tous) redevient
+        # joueur pour la prochaine partie : sinon `register_player` (rôle déjà connu) les
+        # laisserait spectateurs indéfiniment, absents de `players_order` au prochain `start_game`.
+        for pseudo, knowledge in state.players.items():
+            knowledge.role = PlayerRole.PLAYER
             knowledge.notes = {}
             knowledge.observations = {}
+            if pseudo not in state.players_order:
+                state.players_order.append(pseudo)
+        for index, pseudo in enumerate(state.players_order):
+            state.players[pseudo].seat_index = index
 
     # ------------------------------------------------------------------
     # Actions de tour
@@ -215,15 +224,25 @@ class GameEngine:
             state.observations_this_turn += 1
             self._add_history(pseudo, "observe", {"card_id": card_id})
 
-            remaining_unlocked = any(not c.is_locked for c in state.board.values())
-            if state.observations_this_turn >= 2 or not remaining_unlocked:
+            if state.observations_this_turn >= 2 or not self._has_observable_card(state, pseudo):
                 state.current_turn_phase = TurnPhase.MOVE
 
         return card.color
 
+    def _has_observable_card(self, state: GameState, pseudo: str) -> bool:
+        # En mémoire parfaite, une carte déjà connue du joueur ne compte plus
+        # comme "à observer" : sinon elle reste éligible indéfiniment (is_locked
+        # ne change jamais tant qu'aucun indice n'est posé dessus), ce qui bloque
+        # aussi bien une nouvelle observation utile (no-op silencieux) que le skip.
+        knowledge = state.players[pseudo]
+        return any(
+            not c.is_locked and not (state.config.perfect_memory and c.id in knowledge.observations)
+            for c in state.board.values()
+        )
+
     def handle_skip_observe(self, pseudo: str) -> None:
         state = self._check_turn(pseudo, TurnPhase.OBSERVE)
-        if any(not c.is_locked for c in state.board.values()):
+        if self._has_observable_card(state, pseudo):
             raise IllegalClueActionError("il reste des cartes à observer")
         state.current_turn_phase = TurnPhase.MOVE
 
