@@ -112,8 +112,12 @@ class GameEngine:
         state.revealed_clues = []
         state.played_clues = {}
 
-        num_affinity = min(state.config.num_affinity_cards, len(state.players_order))
-        chosen_holders = self.rng.sample(state.players_order, num_affinity)
+        num_affinity = state.config.num_affinity_cards
+        players = list(state.players_order)
+        self.rng.shuffle(players)
+        full_rounds, remainder = divmod(num_affinity, len(players))
+        chosen_holders = players * full_rounds + players[:remainder]
+        self.rng.shuffle(chosen_holders)
         affinity_cards: list[AffinityCard] = []
         for holder_pseudo in chosen_holders:
             color_a, color_b = self.rng.sample(state.config.colors, 2)

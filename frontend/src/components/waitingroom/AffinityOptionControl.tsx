@@ -9,7 +9,6 @@ import { useSyncedValue } from '../../hooks/useSyncedValue'
  */
 export function AffinityOptionControl() {
   const config = useGameStore((s) => s.view?.config)
-  const numPlayers = useGameStore((s) => s.view?.connected_players.length ?? 0)
   const { send } = useWebSocket()
 
   const [count, setCount] = useSyncedValue(config?.num_affinity_cards ?? 0, (value) => {
@@ -40,7 +39,6 @@ export function AffinityOptionControl() {
           <input
             type="number"
             min={0}
-            max={numPlayers}
             value={count}
             onChange={(event) => setCount(Number(event.target.value))}
             className="w-16 rounded border border-gold/40 bg-ink px-2 py-1 text-paper focus:border-gold focus:outline-none"
