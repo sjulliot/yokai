@@ -29,6 +29,15 @@ npm install
 npm run dev
 ```
 
+### Pre-commit
+
+Hooks de lint/format (ruff backend, oxlint frontend) via [pre-commit](https://pre-commit.com/) :
+
+```bash
+pip install pre-commit   # ou: uvx pre-commit
+pre-commit install
+```
+
 ## Structure du dépôt
 
 ```

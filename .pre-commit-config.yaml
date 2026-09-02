@@ -1,0 +1,20 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check (backend)
+        language: system
+        entry: uv run --project backend ruff check --fix
+        files: ^backend/.*\.py$
+      - id: ruff-format
+        name: ruff format (backend)
+        language: system
+        entry: uv run --project backend ruff format
+        files: ^backend/.*\.py$
+      - id: oxlint
+        name: oxlint (frontend)
+        language: system
+        entry: frontend/node_modules/.bin/oxlint -c frontend/.oxlintrc.json
+        files: ^frontend/src/.*\.(ts|tsx)$
+        pass_filenames: false
+        always_run: false
