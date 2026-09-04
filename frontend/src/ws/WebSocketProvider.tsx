@@ -5,6 +5,7 @@ import { useGameStore } from '../store/useGameStore'
 import { useErrorStore } from '../store/useErrorStore'
 import { useObservationStore } from '../store/useObservationStore'
 import { useHistoryStore } from '../store/useHistoryStore'
+import { usePostGameStore } from '../store/usePostGameStore'
 import type { ClientAction } from '../types/protocol'
 
 export interface WebSocketContextValue {
@@ -44,15 +45,30 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         case 'joined':
           useIdentityStore.getState().setPlayerId(event.payload.player_id)
           break
-        case 'state':
-          useGameStore.getState().applyState(event.payload)
+        case 'state': {
+          const postGame = usePostGameStore.getState()
+          if (event.payload.phase === 'finished') {
+            postGame.enterFrozen()
+            useGameStore.getState().applyState(event.payload)
+          } else if (postGame.frozen) {
+            postGame.bufferState(event.payload)
+          } else {
+            useGameStore.getState().applyState(event.payload)
+          }
           break
+        }
         case 'observation_result':
           useObservationStore.getState().addReveal(event.payload)
           break
-        case 'history':
-          useHistoryStore.getState().setEntries(event.payload.entries)
+        case 'history': {
+          const postGame = usePostGameStore.getState()
+          if (postGame.frozen) {
+            postGame.bufferHistory(event.payload.entries)
+          } else {
+            useHistoryStore.getState().setEntries(event.payload.entries)
+          }
           break
+        }
         case 'error':
           useErrorStore.getState().setError(event.payload)
           break

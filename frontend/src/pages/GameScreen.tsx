@@ -5,6 +5,8 @@ import { useGameStore } from '../store/useGameStore'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useErrorStore } from '../store/useErrorStore'
 import { useObservationStore } from '../store/useObservationStore'
+import { useHistoryStore } from '../store/useHistoryStore'
+import { usePostGameStore } from '../store/usePostGameStore'
 import { useUiStore } from '../store/useUiStore'
 import type { GameResult } from '../types/protocol'
 import { Board } from '../components/board/Board'
@@ -97,6 +99,17 @@ export function GameScreen() {
   }, [view?.current_turn_phase, view?.current_player])
 
   if (!view) return null
+
+  // Si un autre joueur a déjà déclenché le retour au lobby entre-temps, applique l'état en attente au lieu de renvoyer l'action.
+  function handleBackToWaitingRoom() {
+    const { view: pendingView, entries: pendingEntries } = usePostGameStore.getState().release()
+    if (pendingView) {
+      useGameStore.getState().applyState(pendingView)
+      if (pendingEntries) useHistoryStore.getState().setEntries(pendingEntries)
+      return
+    }
+    send({ type: 'back_to_waiting_room', payload: {} })
+  }
 
   function handleCardActivate(cardId: number) {
     if (!view) return
@@ -237,7 +250,7 @@ export function GameScreen() {
       {view.phase === 'finished' && view.result && (
         <ResultPanel
           result={view.result}
-          onBackToWaitingRoom={() => send({ type: 'back_to_waiting_room', payload: {} })}
+          onBackToWaitingRoom={handleBackToWaitingRoom}
         />
       )}
 
