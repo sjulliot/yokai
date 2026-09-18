@@ -11,6 +11,8 @@ import type { CardView } from '../../types/protocol'
 import { DeductionPopover } from '../notes/DeductionPopover'
 import { ClueColorSwatch } from '../clues/ClueColorSwatch'
 
+const NO_EXCLUDED_COLORS: string[] = []
+
 const ICON_EMOJI: Record<string, string> = {
   wave: '🌊',
   flame: '🔥',
@@ -82,8 +84,8 @@ export function YokaiCard({
   // simplement parce qu'un indice a ensuite été posé dessus.
   const showNoteTrigger = phase !== 'finished'
   const forcedColor = useGameStore((s) => s.view?.my_notes[card.id]?.forced_color ?? null)
-  const hasExclusionNote = useGameStore(
-    (s) => (s.view?.my_notes[card.id]?.excluded_colors.length ?? 0) > 0,
+  const excludedColors = useGameStore(
+    (s) => s.view?.my_notes[card.id]?.excluded_colors ?? NO_EXCLUDED_COLORS,
   )
 
   // Un indice à plusieurs couleurs posé sur la carte ne rend pas `known_color` public,
@@ -194,12 +196,18 @@ export function YokaiCard({
         />
       )}
 
-      {showNoteTrigger && !forcedColor && hasExclusionNote && (
-        <div
-          title="J'ai exclu au moins une couleur pour cette carte"
-          className="pointer-events-none absolute -bottom-1.5 -right-1.5 z-10 flex h-4 w-4 items-center justify-center rounded-full border-2 border-lacquer bg-ink text-[9px] text-lacquer"
-        >
-          ✕
+      {showNoteTrigger && !forcedColor && excludedColors.length > 0 && (
+        <div className="pointer-events-none absolute -bottom-1.5 -right-1.5 z-10 flex -space-x-1">
+          {excludedColors.map((color) => (
+            <div
+              key={color}
+              title={`Ce n'est pas ${color}`}
+              className="flex h-4 w-4 items-center justify-center rounded-full border-2 border-ink text-[9px] text-white"
+              style={{ backgroundColor: getYokaiHex(color) }}
+            >
+              ✕
+            </div>
+          ))}
         </div>
       )}
 
